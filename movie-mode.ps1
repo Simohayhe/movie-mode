@@ -163,6 +163,21 @@ function Start-MovieRemote {
         return
     }
 
+    # 他の端末から届くようにポートを開けておく。
+    # python.exe への既存の許可規則に依存するとネットワークカテゴリ変更で届かなくなる。
+    $fwName = 'MovieRemote (TCP 8900)'
+    if (-not (Get-NetFirewallRule -DisplayName $fwName -ErrorAction SilentlyContinue)) {
+        try {
+            New-NetFirewallRule -DisplayName $fwName -Direction Inbound -Action Allow `
+                                -Protocol TCP -LocalPort 8900 -Profile Any `
+                                -Description '動画リモコン(movie-mode)の受信を許可' `
+                                -ErrorAction Stop | Out-Null
+            Write-Log 'ファイアウォール: TCP 8900 を許可しました' Green
+        } catch {
+            Write-Log ('ファイアウォール規則を作れませんでした: ' + $_.Exception.Message) Yellow
+        }
+    }
+
     $listening = Get-NetTCPConnection -LocalPort 8900 -State Listen -ErrorAction SilentlyContinue
     if ($listening) {
         Write-Log 'リモコンは既に起動しています (port 8900)' Green

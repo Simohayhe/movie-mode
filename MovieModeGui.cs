@@ -305,17 +305,71 @@ class MainForm : Form
         }
     }
 
+    static string LanIPv4()
+    {
+        try
+        {
+            using (var s = new System.Net.Sockets.Socket(
+                       System.Net.Sockets.AddressFamily.InterNetwork,
+                       System.Net.Sockets.SocketType.Dgram, 0))
+            {
+                // UDPのconnectは実際にはパケットを出さない。
+                // 外向きに使われるインターフェースのアドレスを得るための定石。
+                s.Connect("8.8.8.8", 65530);
+                var ep = s.LocalEndPoint as System.Net.IPEndPoint;
+                if (ep != null) return ep.Address.ToString();
+            }
+        }
+        catch { }
+        return "127.0.0.1";
+    }
+
+    static bool RemoteRunning()
+    {
+        try
+        {
+            var props = System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties();
+            foreach (var ep in props.GetActiveTcpListeners())
+                if (ep.Port == 8900) return true;
+        }
+        catch { }
+        return false;
+    }
+
     void OpenRemote()
     {
         string tokenFile = Path.Combine(dir, "remote-token.txt");
         string token = File.Exists(tokenFile) ? File.ReadAllText(tokenFile).Trim() : "";
-        string url = "http://127.0.0.1:8900/" + (token.Length > 0 ? "?t=" + token : "");
+        string q = token.Length > 0 ? "?t=" + token : "";
+        string localUrl = "http://127.0.0.1:8900/" + q;
+        string lanUrl = "http://" + LanIPv4() + ":8900/" + q;
 
-        try { Process.Start(url); Say("リモコンを開きました: " + url); }
-        catch (Exception ex) { Say("リモコンを開けません: " + ex.Message); }
+        if (!RemoteRunning())
+        {
+            Say("リモコンが起動していません。");
+            Say("Movie-Remote.cmd で単発起動するか、install-autostart.ps1 で常駐登録してください。");
+            MessageBox.Show(
+                "リモコンが起動していません。\n\n" +
+                "他の端末のブラウザから操作するには、常駐登録が必要です:\n" +
+                "  install-autostart.ps1 を実行\n\n" +
+                "これによりログオン時に昇格状態で自動起動し、\n" +
+                "ファイアウォール(TCP 8900)も開きます。",
+                "映画モード", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            return;
+        }
 
-        Say("他の端末からは、このPCのLAN IPに置き換えてアクセスしてください。");
-        Say("常駐させるには install-autostart.ps1 を実行します。");
+        try { Process.Start(localUrl); Say("リモコンを開きました。"); }
+        catch (Exception ex) { Say("ブラウザを開けません: " + ex.Message); }
+
+        Say("他の端末からは次のURLでアクセスします:");
+        Say("  " + lanUrl);
+        try
+        {
+            Clipboard.SetText(lanUrl);
+            Say("(このURLをクリップボードにコピーしました。RDPのクリップボード共有経由で");
+            Say(" 手元のPCに貼り付けられます)");
+        }
+        catch { }
     }
 }
 

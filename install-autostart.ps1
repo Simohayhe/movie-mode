@@ -111,6 +111,28 @@ try {
     exit 1
 }
 
+# ---------------------------------------------------------------- ファイアウォール
+# python.exe への既存の許可規則に依存すると、ネットワークカテゴリが変わった時に
+# 届かなくなる。ポートに対する明示的な規則を全プロファイルで作る。
+$fwName = 'MovieRemote (TCP 8900)'
+try {
+    $existing = Get-NetFirewallRule -DisplayName $fwName -ErrorAction SilentlyContinue
+    if ($existing) {
+        Write-Host "ファイアウォール規則は既に存在します: $fwName" -ForegroundColor Green
+    } else {
+        New-NetFirewallRule -DisplayName $fwName `
+                            -Direction Inbound -Action Allow `
+                            -Protocol TCP -LocalPort 8900 `
+                            -Profile Any `
+                            -Description '動画リモコン(movie-mode)の受信を許可' `
+                            -ErrorAction Stop | Out-Null
+        Write-Host "ファイアウォール規則を作成しました: $fwName" -ForegroundColor Green
+    }
+} catch {
+    Write-Host ("ファイアウォール規則の作成に失敗: " + $_.Exception.Message) -ForegroundColor Yellow
+    Write-Host '他の端末から繋がらない場合は手動で TCP 8900 を許可してください。' -ForegroundColor Yellow
+}
+
 # 既存のリモコンを止めてからタスク経由で起動し直す（昇格状態にするため）
 $listening = Get-NetTCPConnection -LocalPort 8900 -State Listen -ErrorAction SilentlyContinue
 if ($listening) {
