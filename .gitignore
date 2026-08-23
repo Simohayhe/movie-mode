@@ -9,3 +9,4 @@ __pycache__/
 remote-token.txt
 remote-url.txt
 connect-shadow.cmd
+sites.json
