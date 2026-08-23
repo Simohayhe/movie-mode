@@ -212,12 +212,7 @@ if (-not $SkipTask -and $pyw -and (Test-Path $remote)) {
 $ip = (Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
        Where-Object { $_.IPAddress -like '192.168.*' -or $_.IPAddress -like '10.*' -or $_.IPAddress -like '172.*' } |
        Select-Object -First 1).IPAddress
-$tokenFile = Join-Path $ScriptDir 'remote-token.txt'
 $url = 'http://{0}:{1}/' -f $ip, $Port
-if (Test-Path $tokenFile) {
-    $t = (Get-Content $tokenFile -Raw).Trim()
-    if ($t) { $url += ('?t={0}' -f $t) }
-}
 
 Write-Host ''
 Write-Host '================================================================' -ForegroundColor Cyan

@@ -8,9 +8,17 @@ movie-remote - サーバー機の動画再生をLAN内の別端末から操作�
 
 標準ライブラリのみ。追加パッケージ不要。
 
-    python movie-remote.py            起動（既定ポート 8900）
+    python movie-remote.py             起動（既定ポート 8900）
     python movie-remote.py --port 9000
-    python movie-remote.py --no-token  トークン認証なし（LAN内に開放）
+    python movie-remote.py --token     トークン認証を有効にする
+    python movie-remote.py --any-source  同一サブネット以外からの接続も受け付ける
+
+既定ではトークンなしで動く。URLを控えたりコピーしたりせずに
+`http://<このPCのIP>:8900/` を開くだけで使えるようにするため。
+
+その代わり、既定では**同一サブネットからの接続のみ**を受け付ける。
+うっかりポート開放してしまった場合に外から操作されるのを防ぐための保険で、
+LAN内での使用感は変わらない。
 """
 
 from __future__ import annotations
@@ -322,9 +330,16 @@ setInterval(loadStatus, 15000);
 
 class Handler(BaseHTTPRequestHandler):
     token = ""
+    host_ip = "127.0.0.1"
+    any_source = False
 
     def log_message(self, *a):
         pass
+
+    def _source_ok(self) -> bool:
+        if self.any_source:
+            return True
+        return same_subnet(self.client_address[0], self.host_ip)
 
     def _send(self, obj, code=200, ctype="application/json; charset=utf-8"):
         raw = obj if isinstance(obj, bytes) else json.dumps(obj, ensure_ascii=False).encode()
@@ -335,6 +350,8 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(raw)
 
     def _authed(self, q) -> bool:
+        if not self._source_ok():
+            return False
         if not self.token:
             return True
         return q.get("t", [""])[0] == self.token
@@ -343,6 +360,8 @@ class Handler(BaseHTTPRequestHandler):
         u = urllib.parse.urlparse(self.path)
         q = urllib.parse.parse_qs(u.query)
         if u.path == "/":
+            if not self._source_ok():
+                return self._send({"error": "このネットワークからは利用できません"}, 403)
             self._send(PAGE.encode(), 200, "text/html; charset=utf-8")
         elif u.path == "/status":
             if not self._authed(q):
@@ -368,6 +387,16 @@ class Handler(BaseHTTPRequestHandler):
                 self._send({"ok": False, "message": "not found"}, 404)
         except Exception as e:
             self._send({"ok": False, "message": str(e)}, 500)
+
+
+def same_subnet(client_ip: str, host_ip: str) -> bool:
+    """クライアントが同一 /24 か、ループバックかを判定する。"""
+    if client_ip in ("127.0.0.1", "::1"):
+        return True
+    try:
+        return client_ip.rsplit(".", 1)[0] == host_ip.rsplit(".", 1)[0]
+    except Exception:
+        return False
 
 
 def lan_ip() -> str:
@@ -399,26 +428,37 @@ def get_token(enabled: bool) -> str:
 def main():
     ap = argparse.ArgumentParser(description="動画再生リモコン")
     ap.add_argument("--port", type=int, default=8900)
-    ap.add_argument("--no-token", action="store_true", help="トークン認証を無効にする")
+    ap.add_argument("--token", action="store_true",
+                    help="トークン認証を有効にする（既定は無効）")
+    ap.add_argument("--any-source", action="store_true",
+                    help="同一サブネット以外からの接続も受け付ける（非推奨）")
+    # 旧オプション。既定が「トークンなし」になったため何もしない。
+    ap.add_argument("--no-token", action="store_true", help=argparse.SUPPRESS)
     args = ap.parse_args()
 
-    token = get_token(not args.no_token)
-    Handler.token = token
+    host = lan_ip()
+    Handler.token = get_token(args.token)
+    Handler.host_ip = host
+    Handler.any_source = args.any_source
 
-    url = f"http://{lan_ip()}:{args.port}/"
-    if token:
-        url += f"?t={token}"
+    url = f"http://{host}:{args.port}/"
+    if Handler.token:
+        url += f"?t={Handler.token}"
 
     print("=" * 60)
     print(" Movie Remote 起動中")
     print("=" * 60)
-    print(f"  スマホ / ゲームPC のブラウザで開く:")
+    print("  スマホ / ゲームPC のブラウザで開く:")
     print(f"    {url}")
     print()
-    if token:
-        print(f"  トークン: {token}  （{TOKEN_FILE} に保存済み）")
+    if Handler.token:
+        print(f"  トークン認証: 有効  （{TOKEN_FILE}）")
     else:
-        print("  警告: トークン無効。LAN内の誰でも操作できます。")
+        print("  トークン認証: 無効")
+    if args.any_source:
+        print("  接続元制限: なし  ← 到達できる相手なら誰でも操作できます")
+    else:
+        print(f"  接続元制限: {host.rsplit('.', 1)[0]}.0/24 のみ")
     print("  Ctrl+C で終了")
     print("=" * 60)
 

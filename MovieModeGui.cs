@@ -338,11 +338,8 @@ class MainForm : Form
 
     void OpenRemote()
     {
-        string tokenFile = Path.Combine(dir, "remote-token.txt");
-        string token = File.Exists(tokenFile) ? File.ReadAllText(tokenFile).Trim() : "";
-        string q = token.Length > 0 ? "?t=" + token : "";
-        string localUrl = "http://127.0.0.1:8900/" + q;
-        string lanUrl = "http://" + LanIPv4() + ":8900/" + q;
+        string localUrl = "http://127.0.0.1:8900/";
+        string lanUrl = "http://" + LanIPv4() + ":8900/";
 
         if (!RemoteRunning())
         {

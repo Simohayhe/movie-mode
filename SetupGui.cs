@@ -218,20 +218,13 @@ class SetupForm : Form
 
     void CopyUrl()
     {
-        string tokenFile = Path.Combine(dir, "remote-token.txt");
-        if (!File.Exists(tokenFile))
-        {
-            Say("トークンがまだありません。先にインストールしてリモコンを起動してください。");
-            return;
-        }
-        string token = File.ReadAllText(tokenFile).Trim();
-        string url = "http://" + LanIPv4() + ":8900/" + (token.Length > 0 ? "?t=" + token : "");
+        string url = "http://" + LanIPv4() + ":8900/";
+        Say("別の端末のブラウザで開くURL:");
+        Say("  " + url);
         try
         {
             Clipboard.SetText(url);
-            Say("クリップボードにコピーしました:");
-            Say("  " + url);
-            Say("(RDPのクリップボード共有経由で手元のPCに貼り付けられます)");
+            Say("(クリップボードにコピーしました)");
         }
         catch (Exception ex) { Say("コピーに失敗: " + ex.Message); }
     }
