@@ -1,5 +1,6 @@
 # 生成物・ローカル固有のもの
 MovieMode.exe
+Setup.exe
 *.log
 __pycache__/
 *.pyc

@@ -44,9 +44,23 @@ build.cmd
 ```
 
 Windows同梱の `csc.exe` を使うので、Visual Studioもコンパイラのインストールも要らない。
-`MovieMode.exe` が生成される。
+`MovieMode.exe` と `Setup.exe` が生成される。
 
-### 2. 実行
+リリースのZIPにはビルド済みのものが入っているので、この手順は省略できる。
+
+### 2. セットアップ
+
+`Setup.exe` を実行する。以下をまとめて行う。
+
+- リモコンをログオン時に**昇格状態で常駐**登録（これが無いとブラウザから切り替えできない）
+- ファイアウォールで TCP 8900 の受信を許可
+- デスクトップとスタートメニューにショートカットを作成（`Ctrl + Alt + M`）
+
+項目はチェックボックスで個別に外せる。同じ画面から**アンインストール**もできる。
+
+リモコンを使わず、この機械の上だけで完結させるなら省略しても構わない。
+
+### 3. 実行
 
 ```
 1. 配信したいものを再生し、Discordで画面共有を開始する    ← 必ず先に
@@ -82,13 +96,15 @@ Movie-Remote.cmd
 2. `tscon` はSYSTEM権限を要求するため、リモコン自身が昇格状態で
    動いていないとセッションを切り替えられない
 
+常駐登録は `Setup.exe` が行う（中身は `install-autostart.ps1`）。
+コマンドラインから直接実行することもできる。
+
 ```bash
 powershell -ExecutionPolicy Bypass -File install-autostart.ps1
+powershell -ExecutionPolicy Bypass -File install-autostart.ps1 -Uninstall
 ```
 
-ログオン時に最上位の特権で自動起動するタスクとして登録し、
-あわせて TCP 8900 のインバウンド規則を作成する。
-UACは登録時の1回だけ。解除は `-Uninstall`。
+UACは実行時の1回だけ。
 
 登録後は、他の端末のブラウザで `http://<このPCのLAN IP>:8900/?t=<トークン>` を開けば、
 セッション切り替えと再生操作の両方ができる。
@@ -100,13 +116,17 @@ URLは GUI の「リモコンを開く」を押すとログに表示され、ク
 
 | ファイル | 用途 |
 |---|---|
-| `MovieModeGui.cs` | GUI本体（WinForms） |
+| `MovieModeGui.cs` | 本体GUI（WinForms） |
+| `SetupGui.cs` | セットアップGUI |
 | `movie-mode.ps1` | セッション移動の処理本体 |
 | `movie-remote.py` | Webリモコン兼セッション切り替えAPI |
-| `install-autostart.ps1` | リモコンを昇格常駐させる |
+| `install-autostart.ps1` | 常駐登録・ファイアウォール・ショートカット（Setup.exeの実処理） |
 | `check-stream.ps1` | 状態の実測（NVENC・解像度・Discord負荷） |
-| `build.cmd` | `csc.exe` でexeをビルド |
-| `movie-mode.manifest` | `requireAdministrator` を要求するマニフェスト |
+| `build.cmd` | `csc.exe` で両exeをビルド |
+| `movie-mode.manifest` / `setup.manifest` | `requireAdministrator` を要求するマニフェスト |
+
+`Setup.exe` は処理を持たず、`install-autostart.ps1` を呼んで出力を表示するだけの薄い層。
+同じ処理を二重に実装すると片方が腐るため、スクリプト側を唯一の実装にしている。
 
 ### コマンドラインオプション
 
