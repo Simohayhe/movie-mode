@@ -1,0 +1,10 @@
+# 生成物・ローカル固有のもの
+MovieMode.exe
+*.log
+__pycache__/
+*.pyc
+
+# 認証情報・環境依存(ホスト名やIPを含む)
+remote-token.txt
+remote-url.txt
+connect-shadow.cmd
